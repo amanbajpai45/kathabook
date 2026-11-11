@@ -1,0 +1,220 @@
+{
+  "entities": {
+    "Customer": {
+      "title": "Customer",
+      "description": "Kirana store customer record for tracking udhar and contact details",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Store owner auth UID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Customer full name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Customer contact number"
+        },
+        "address": {
+          "type": "string",
+          "description": "Customer home address or locality"
+        },
+        "totalUdhar": {
+          "type": "number",
+          "description": "Outstanding credit balance in rupees"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Shopkeeper personal notes"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp via serverTimestamp()"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp via serverTimestamp()"
+        }
+      },
+      "required": ["userId", "name", "phone", "totalUdhar", "createdAt", "updatedAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Credit entry or payment received entry in customer khata",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Store owner auth UID"
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Referenced customer ID"
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Customer name for quick display"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["UDHAR_DIYA", "JAMA_KIYA"],
+          "description": "Transaction nature"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Transaction amount in rupees"
+        },
+        "description": {
+          "type": "string",
+          "description": "Item details or payment note"
+        },
+        "paymentMode": {
+          "type": "string",
+          "description": "Payment mode e.g. Cash, UPI, Khata"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Transaction timestamp via serverTimestamp()"
+        }
+      },
+      "required": ["userId", "customerId", "customerName", "type", "amount", "createdAt"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "Grocery store inventory product and stock level",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Store owner auth UID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Item name in English"
+        },
+        "hindiName": {
+          "type": "string",
+          "description": "Item name in Hindi"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category such as Dal, Masale, Oil, Atta, Dairy"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Available stock quantity"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement (kg, gm, ltr, pkt, pc)"
+        },
+        "costPrice": {
+          "type": "number",
+          "description": "Purchase cost price per unit"
+        },
+        "sellingPrice": {
+          "type": "number",
+          "description": "Selling retail price per unit"
+        },
+        "lowStockAlert": {
+          "type": "number",
+          "description": "Threshold quantity for low stock warnings"
+        },
+        "isAvailableForOnlineOrder": {
+          "type": "boolean",
+          "description": "Whether customer can order this item from home"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp via serverTimestamp()"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last updated timestamp via serverTimestamp()"
+        }
+      },
+      "required": ["userId", "name", "category", "quantity", "unit", "sellingPrice", "createdAt", "updatedAt"]
+    },
+    "StoreOrder": {
+      "title": "StoreOrder",
+      "description": "Customer home delivery order and real-time status tracking",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Store owner auth UID"
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Name of customer ordering"
+        },
+        "customerPhone": {
+          "type": "string",
+          "description": "Phone number for order delivery"
+        },
+        "deliveryAddress": {
+          "type": "string",
+          "description": "Home address for delivery"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Order total bill in rupees"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["COD", "UDHAR", "UPI"],
+          "description": "Payment method chosen"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PLACED", "ACCEPTED", "PACKING", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"],
+          "description": "Real-time delivery progress status"
+        },
+        "itemsSummary": {
+          "type": "string",
+          "description": "Summarized list of items with quantities and prices"
+        },
+        "riderNote": {
+          "type": "string",
+          "description": "Delivery note or rider updates"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Order placed timestamp via serverTimestamp()"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last status update timestamp via serverTimestamp()"
+        }
+      },
+      "required": ["userId", "customerName", "customerPhone", "deliveryAddress", "totalAmount", "paymentMethod", "status", "itemsSummary", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/Customer" },
+      "description": "Store owner customer records and total udhar balance"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Credit and debit transactions for a customer khata"
+    },
+    "/users/{userId}/inventory/{itemId}": {
+      "schema": { "$ref": "#/entities/InventoryItem" },
+      "description": "Kirana store stock inventory items"
+    },
+    "/users/{userId}/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/StoreOrder" },
+      "description": "Home delivery orders with real-time status tracking"
+    }
+  }
+}

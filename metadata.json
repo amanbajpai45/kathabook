@@ -1,0 +1,6 @@
+{
+  "name": "KiranaKhata",
+  "description": "Kirana store udhar ledger, AI payment reminders, inventory management, and real-time customer ordering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

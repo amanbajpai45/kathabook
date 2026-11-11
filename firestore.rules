@@ -1,0 +1,150 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net - deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidCustomer(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 20 &&
+             (!('address' in data) || data.address == null || (data.address is string && data.address.size() <= 300)) &&
+             (data.totalUdhar is number || data.totalUdhar is int) &&
+             (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 500)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidTransaction(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.customerId is string && data.customerId.size() <= 128 &&
+             data.customerName is string && data.customerName.size() <= 100 &&
+             data.type is string && (data.type == 'UDHAR_DIYA' || data.type == 'JAMA_KIYA') &&
+             (data.amount is number || data.amount is int) && data.amount >= 0 &&
+             (!('description' in data) || data.description == null || (data.description is string && data.description.size() <= 500)) &&
+             (!('paymentMode' in data) || data.paymentMode == null || (data.paymentMode is string && data.paymentMode.size() <= 50)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidInventoryItem(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (!('hindiName' in data) || data.hindiName == null || (data.hindiName is string && data.hindiName.size() <= 100)) &&
+             data.category is string && data.category.size() <= 50 &&
+             (data.quantity is number || data.quantity is int) &&
+             data.unit is string && data.unit.size() <= 20 &&
+             (!('costPrice' in data) || data.costPrice == null || data.costPrice is number || data.costPrice is int) &&
+             (data.sellingPrice is number || data.sellingPrice is int) && data.sellingPrice >= 0 &&
+             (!('lowStockAlert' in data) || data.lowStockAlert == null || data.lowStockAlert is number || data.lowStockAlert is int) &&
+             (!('isAvailableForOnlineOrder' in data) || data.isAvailableForOnlineOrder == null || data.isAvailableForOnlineOrder is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidStoreOrder(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 100 &&
+             data.customerPhone is string && data.customerPhone.size() >= 5 && data.customerPhone.size() <= 20 &&
+             data.deliveryAddress is string && data.deliveryAddress.size() > 0 && data.deliveryAddress.size() <= 300 &&
+             (data.totalAmount is number || data.totalAmount is int) && data.totalAmount >= 0 &&
+             data.paymentMethod is string && (data.paymentMethod == 'COD' || data.paymentMethod == 'UDHAR' || data.paymentMethod == 'UPI') &&
+             data.status is string && (data.status == 'PLACED' || data.status == 'ACCEPTED' || data.status == 'PACKING' || data.status == 'OUT_FOR_DELIVERY' || data.status == 'DELIVERED' || data.status == 'CANCELLED') &&
+             data.itemsSummary is string && data.itemsSummary.size() <= 2000 &&
+             (!('riderNote' in data) || data.riderNote == null || (data.riderNote is string && data.riderNote.size() <= 500)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // Match store owner user subcollections
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+
+      // Customer Directory
+      match /customers/{customerId} {
+        allow get: if isOwner(userId) && isValidId(customerId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(customerId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'name', 'phone', 'totalUdhar', 'createdAt', 'updatedAt']) &&
+                         isValidCustomer(incoming());
+        allow update: if isOwner(userId) && isValidId(customerId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidCustomer(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'address', 'totalUdhar', 'notes', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(customerId);
+      }
+
+      // Khata Transactions (Debit/Credit records)
+      match /transactions/{transactionId} {
+        allow get: if isOwner(userId) && isValidId(transactionId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(transactionId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'customerId', 'customerName', 'type', 'amount', 'createdAt']) &&
+                         isValidTransaction(incoming());
+        allow update: if isOwner(userId) && isValidId(transactionId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTransaction(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['description', 'paymentMode', 'amount']);
+        allow delete: if isOwner(userId) && isValidId(transactionId);
+      }
+
+      // Inventory Items
+      match /inventory/{itemId} {
+        allow get: if isOwner(userId) && isValidId(itemId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(itemId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'name', 'category', 'quantity', 'unit', 'sellingPrice', 'createdAt', 'updatedAt']) &&
+                         isValidInventoryItem(incoming());
+        allow update: if isOwner(userId) && isValidId(itemId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidInventoryItem(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'hindiName', 'category', 'quantity', 'unit', 'costPrice', 'sellingPrice', 'lowStockAlert', 'isAvailableForOnlineOrder', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(itemId);
+      }
+
+      // Store Orders
+      match /orders/{orderId} {
+        allow get: if isOwner(userId) && isValidId(orderId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(orderId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'customerName', 'customerPhone', 'deliveryAddress', 'totalAmount', 'paymentMethod', 'status', 'itemsSummary', 'createdAt', 'updatedAt']) &&
+                         isValidStoreOrder(incoming());
+        allow update: if isOwner(userId) && isValidId(orderId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidStoreOrder(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'riderNote', 'updatedAt', 'totalAmount', 'paymentMethod']);
+        allow delete: if isOwner(userId) && isValidId(orderId);
+      }
+    }
+  }
+}
